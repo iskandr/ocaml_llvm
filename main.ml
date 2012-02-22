@@ -1,7 +1,6 @@
 open Printf
 open Dsl
 
-
 let f = {
   inputs=["k"];
   body=Sum ("i", Num 1.0, Var "k", Div(Num 1.0,  Mult(Var "i", Var "i")))
@@ -39,5 +38,4 @@ let _ =
     let ocaml_end_time = Unix.gettimeofday() in
     printf "Time: %f\n" (ocaml_end_time -. ocaml_start_time);
     printf "Result: %f\n" ocaml_result;
-
   end

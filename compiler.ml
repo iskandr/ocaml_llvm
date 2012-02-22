@@ -1,4 +1,7 @@
 
+(* make sure we can compile native code *)
+let _ = Llvm_executionengine.initialize_native_target()
+
 module StringMap = Map.Make(String)
 
 (* maps variable names in DSL to LLVM registers *)
@@ -20,7 +23,6 @@ type llvm_state = {
   llvm_module : Llvm.llmodule;
   llvm_fn : Llvm.llvalue;
 }
-
 
 let rec compile_exp state names = function
   | Dsl.Num f -> Llvm.const_float f32_t f
@@ -116,7 +118,6 @@ let init (f : Dsl.fn) : llvm_state =
 
 module LLE = Llvm_executionengine.ExecutionEngine
 
-
 let optimize llvm_fn llvm_module execution_engine =
   let pm = Llvm.PassManager.create_function llvm_module in
   (* Set up the optimizer pipeline.  Start with registering info about how the
@@ -124,34 +125,20 @@ let optimize llvm_fn llvm_module execution_engine =
   Llvm_target.TargetData.add (LLE.target_data execution_engine) pm;
 
   (* THROW EVERY OPTIMIZATION UNDER THE SUN AT THE CODE *)
-  Llvm_scalar_opts.add_licm pm;
-  Llvm_scalar_opts.add_loop_deletion pm;
-  Llvm_scalar_opts.add_loop_rotation pm;
-  Llvm_scalar_opts.add_loop_idiom pm;
-  Llvm_scalar_opts.add_loop_unswitch pm;
-  Llvm_scalar_opts.add_loop_unroll pm;
-
-
   Llvm_scalar_opts.add_memory_to_register_promotion pm;
   Llvm_scalar_opts.add_sccp pm;
   Llvm_scalar_opts.add_aggressive_dce pm;
   Llvm_scalar_opts.add_instruction_combination pm;
   Llvm_scalar_opts.add_cfg_simplification pm;
-
   Llvm_scalar_opts.add_scalar_repl_aggregation pm;
   Llvm_scalar_opts.add_reassociation pm;
-  Llvm_scalar_opts.add_jump_threading pm;
-  Llvm_scalar_opts.add_lower_expect_intrinsic pm;
-
   Llvm_scalar_opts.add_basic_alias_analysis pm;
   Llvm_scalar_opts.add_type_based_alias_analysis pm;
   Llvm_scalar_opts.add_ind_var_simplification pm;
   Llvm_scalar_opts.add_dead_store_elimination pm;
-  Llvm_scalar_opts.add_memcpy_opt pm;
   Llvm_scalar_opts.add_gvn pm;
   Llvm_scalar_opts.add_correlated_value_propagation pm;
-
-
+  Llvm_scalar_opts.add_licm pm;
 
   ignore (Llvm.PassManager.run_function llvm_fn pm);
   ignore (Llvm.PassManager.finalize pm);
@@ -192,13 +179,7 @@ let compile (f:Dsl.fn) : compiled_fn  =
     execution_engine = execution_engine
   }
 
-
-
-(* make sure we can compile native code *)
-let _ = Llvm_executionengine.initialize_native_target()
-
 module GV = Llvm_executionengine.GenericValue
-
 
 let run (f:compiled_fn) (inputs:float list) : float =
   let llvm_inputs : GV.t list = List.map (GV.of_float f32_t) inputs in
@@ -206,8 +187,3 @@ let run (f:compiled_fn) (inputs:float list) : float =
     LLE.run_function f.fn_val (Array.of_list llvm_inputs) f.execution_engine
   in
   GV.as_float f32_t result
-
-
-
-
-

@@ -4,8 +4,9 @@ open Dsl
 
 let z = {
   inputs=["k"];
-  body=Sum("i", Num 0.0, Var "k", Div(Num 1.0, Mult(Var "i", Var "i")))
+  body=Sum("i", Num 1.0, Var "k", Div(Num 1.0, Mult(Var "i", Var "i")))
 }
+
 
 let _ =
   begin
@@ -14,5 +15,10 @@ let _ =
     printf "Compiling...\n";
     let compiled = Compiler.compile z in
     printf "LLVM code:\n";
-    Llvm.dump_value compiled
+    Llvm.dump_value compiled;
+    printf "Verifying LLVM function...\n";
+    Llvm_analysis.assert_valid_function compiled;
+    printf "Running LLVM function...\n";
+    let result = Runtime.run compiled [100.0] in
+    printf "Result: %f\n" result
   end

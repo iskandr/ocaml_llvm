@@ -1,3 +1,3 @@
 
 
-val compile : Dsl.exp -> Llvm.llvalue
+val compile : Dsl.fn -> Llvm.llvalue

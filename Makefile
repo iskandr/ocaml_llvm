@@ -4,7 +4,7 @@
 SOURCES = dsl.mli dsl.ml compiler.mli compiler.ml main.ml
 
 CLIBS = llvm LLVMCore LLVMSupport
-LIBS = llvm llvm_analysis llvm_executionengine llvm_target llvm_scalar_opts
+LIBS = llvm llvm_analysis llvm_executionengine llvm_target llvm_scalar_opts unix
 
 
 # the name of the resulting executable
@@ -14,8 +14,8 @@ RESULT  = main
 ANNOTATE = yes
 
 # LLVM depends on lots of gunk from C++ 
-OCAMLOPT = ocamlopt -cc g++ 
-
+OCAMLOPT = ocamlopt -cc g++ -I /usr/local/lib/ocaml -I /usr/local/lib/ocaml 
+OCAMLC = ocamlc -I /usr/local/lib/ocaml
 # make target (see manual) : byte-code, debug-code, native-code, ...
 all: native-code
 

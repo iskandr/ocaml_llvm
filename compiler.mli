@@ -4,7 +4,7 @@ module StringMap : module type of Map.Make(String)
 type name_env = Llvm.llvalue StringMap.t
 
 (* the only datatype our compiler supports  *)
-val f64_t : Llvm.lltype
+val f32_t : Llvm.lltype
 
 (* State which needs to get passed into LLVM functions *)
 type llvm_state = {

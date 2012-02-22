@@ -4,12 +4,12 @@ open Dsl
 
 let f = {
   inputs=["k"];
-  body=Sum("i", Num 1.0, Var "k", Div(Num 1.0, Mult(Var "i", Var "i")))
+  body=Sum ("i", Num 1.0, Var "k", Div(Num 1.0,  Mult(Var "i", Var "i")))
 }
 
-let ocaml_impl k =
+let ocaml_impl stop =
   let rec aux acc i =
-    if i > k then acc
+    if i > stop then acc
     else aux (acc +. (1.0 /. (i*.i))) (i +. 1.0)
   in
   aux 0.0 1.0
@@ -24,19 +24,19 @@ let _ =
     Llvm.dump_value compiled.Compiler.fn_val;
     printf "Verifying LLVM function...\n";
     Llvm_analysis.assert_valid_function compiled.Compiler.fn_val;
-    let k = 1000000000.0 in
+    let k = 15000000.0 in
     printf "---\nRunning LLVM function:\n";
     (* warm up the JIT *)
     let _ = Compiler.run compiled [1.0] in
-    let llvm_start_time = Sys.time() in
+    let llvm_start_time = Unix.gettimeofday() in
     let result = Compiler.run compiled [k] in
-    let llvm_end_time = Sys.time() in
+    let llvm_end_time = Unix.gettimeofday() in
     printf "Time: %f\n" (llvm_end_time -. llvm_start_time);
     printf "Result: %f\n" result;
     printf "---\nRunning OCaml function:\n";
-    let ocaml_start_time = Sys.time() in
+    let ocaml_start_time = Unix.gettimeofday() in
     let ocaml_result = ocaml_impl k in
-    let ocaml_end_time = Sys.time() in
+    let ocaml_end_time = Unix.gettimeofday() in
     printf "Time: %f\n" (ocaml_end_time -. ocaml_start_time);
     printf "Result: %f\n" ocaml_result;
 

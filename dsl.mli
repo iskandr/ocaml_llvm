@@ -1,4 +1,3 @@
-
 type exp =
   | Num of float
   | Var of string

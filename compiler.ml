@@ -63,7 +63,6 @@ and compile_loop state names old_block loop_var_name start stop body =
     let loop_var : Llvm.llvalue =
       Llvm.build_phi [start, old_block] loop_var_name state.builder
     in
-
     (* The module Llvm.Fcmp contains two sorts of comparisons. *)
     (* Ordered comparisons, such as Ogt (ordered greater than) will be false*)
     (* if an argument is NaN. Unordered don't care. *)
@@ -144,12 +143,10 @@ let optimize llvm_fn llvm_module execution_engine =
   ignore (Llvm.PassManager.finalize pm);
   Llvm.PassManager.dispose pm
 
-
 type compiled_fn = {
   fn_val : Llvm.llvalue;
   execution_engine : LLE.t;
 }
-
 
 let compile (f:Dsl.fn) : compiled_fn  =
   (* initialize an empty function *)

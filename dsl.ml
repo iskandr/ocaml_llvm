@@ -1,6 +1,3 @@
-
-
-
 type exp =
   | Num of float
   | Var of string
@@ -24,4 +21,3 @@ type fn = {inputs:string list; body: exp}
 
 let fn_to_str {inputs; body} =
   Printf.sprintf "fn(%s) = %s" (String.concat ", " inputs) (exp_to_str body)
-

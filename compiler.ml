@@ -113,7 +113,48 @@ let init (f : Dsl.fn) : llvm_state =
   { builder = builder; llvm_module = m; llvm_fn = llvm_fn }
 
 
-let compile (f:Dsl.fn) : Llvm.llvalue  =
+module LLE = Llvm_executionengine.ExecutionEngine
+
+
+let optimize llvm_fn llvm_module execution_engine =
+  let pm = Llvm.PassManager.create_function llvm_module in
+  (* Set up the optimizer pipeline.  Start with registering info about how the
+  * target lays out data structures. *)
+  Llvm_target.TargetData.add (LLE.target_data execution_engine) pm;
+
+  (* THROW EVERY OPTIMIZATION UNDER THE SUN AT THE CODE *)
+  Llvm_scalar_opts.add_memory_to_register_promotion pm;
+  Llvm_scalar_opts.add_sccp pm;
+  Llvm_scalar_opts.add_aggressive_dce pm;
+  Llvm_scalar_opts.add_instruction_combination pm;
+  Llvm_scalar_opts.add_cfg_simplification pm;
+
+  Llvm_scalar_opts.add_basic_alias_analysis pm;
+  Llvm_scalar_opts.add_type_based_alias_analysis pm;
+  Llvm_scalar_opts.add_ind_var_simplification pm;
+  Llvm_scalar_opts.add_dead_store_elimination pm;
+  Llvm_scalar_opts.add_memcpy_opt pm;
+  Llvm_scalar_opts.add_gvn pm;
+  Llvm_scalar_opts.add_correlated_value_propagation pm;
+
+  Llvm_scalar_opts.add_licm pm;
+  Llvm_scalar_opts.add_loop_unswitch pm;
+  Llvm_scalar_opts.add_loop_unroll pm;
+  Llvm_scalar_opts.add_loop_unroll pm;
+  Llvm_scalar_opts.add_loop_rotation pm;
+  Llvm_scalar_opts.add_loop_idiom pm;
+  ignore (Llvm.PassManager.run_function llvm_fn pm);
+  ignore (Llvm.PassManager.finalize pm);
+  Llvm.PassManager.dispose pm
+
+
+type compiled_fn = {
+  fn_val : Llvm.llvalue;
+  execution_engine : LLE.t;
+}
+
+
+let compile (f:Dsl.fn) : compiled_fn  =
   (* initialize an empty function *)
   let state : llvm_state = init f in
   (* grabs the registers which store inputs *)
@@ -129,8 +170,34 @@ let compile (f:Dsl.fn) : Llvm.llvalue  =
   let result = compile_exp state names f.Dsl.body in
   (* return the last value *)
   let _  = Llvm.build_ret result state.builder in
-  (* we owe our caller a compiled function *)
-  state.llvm_fn
+
+  (* create an optimizing JIT (opt-level = 3) *)
+  let execution_engine : LLE.t =
+    Llvm_executionengine.ExecutionEngine.create_jit state.llvm_module 3
+  in
+  optimize state.llvm_fn state.llvm_module execution_engine;
+  (* return the function associated with the execution engine *)
+  {
+    fn_val = state.llvm_fn;
+    execution_engine = execution_engine
+  }
+
+
+
+(* make sure we can compile native code *)
+let _ = Llvm_executionengine.initialize_native_target()
+
+module GV = Llvm_executionengine.GenericValue
+
+
+let run (f:compiled_fn) (inputs:float list) : float =
+  let llvm_inputs : GV.t list = List.map (GV.of_float f64_t) inputs in
+  let result : GV.t =
+    LLE.run_function f.fn_val (Array.of_list llvm_inputs) f.execution_engine
+  in
+  GV.as_float f64_t result
+
+
 
 
 

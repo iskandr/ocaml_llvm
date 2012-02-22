@@ -13,6 +13,17 @@ type llvm_state = {
   llvm_fn : Llvm.llvalue;
 }
 
+
 val compile_exp : llvm_state -> name_env -> Dsl.exp -> Llvm.llvalue
 val init : Dsl.fn -> llvm_state
-val compile : Dsl.fn -> Llvm.llvalue
+
+type compiled_fn = {
+  fn_val : Llvm.llvalue;
+  execution_engine : Llvm_executionengine.ExecutionEngine.t;
+}
+
+val compile : Dsl.fn -> compiled_fn
+
+(* the runtime converts OCaml values in LLVM's GenericValues and *)
+(* initiates JIT+execution *)
+val run : compiled_fn -> float list -> float

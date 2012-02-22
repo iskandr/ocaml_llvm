@@ -1,7 +1,7 @@
 # see: http://www.ocaml.info/home/ocaml_sources.html#toc16
 
 # put here the names of your source files (in the right order)
-SOURCES = dsl.mli dsl.ml compiler.mli compiler.ml runtime.mli runtime.ml main.ml
+SOURCES = dsl.mli dsl.ml compiler.mli compiler.ml main.ml
 
 CLIBS = llvm LLVMCore LLVMSupport
 LIBS = llvm llvm_analysis llvm_executionengine llvm_target llvm_scalar_opts

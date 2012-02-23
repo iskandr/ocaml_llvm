@@ -1,8 +1,8 @@
 Here's toy language for 32-bit float computations in OCaml.
 
 For example, if you want to compute the n'th harmonic number, you could encode this as:
-    let harmonic : Compiler.compiled_fn = 
-      Compiler.compile { 
+    let harmonic : compiled_fn = 
+      compile { 
         name ="harmonic";
         inputs = ["n"];
         body = Sum("i", Num 1.0, Var "n", Div(Num 1.0, Var "i"));

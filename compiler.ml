@@ -11,11 +11,11 @@ type name_env = Llvm.llvalue StringMap.t
 let context : Llvm.llcontext = Llvm.global_context()
 
 (* annoying to recreate types repeatedly, so just make globals *)
-let f32_t : Llvm.lltype = Llvm.float_type context
+let float_t : Llvm.lltype = Llvm.float_type context
 
 (* pre-create these common numbers *)
-let zero : Llvm.llvalue = Llvm.const_float f32_t 0.0
-let one : Llvm.llvalue = Llvm.const_float f32_t 1.0
+let zero : Llvm.llvalue = Llvm.const_float float_t 0.0
+let one : Llvm.llvalue = Llvm.const_float float_t 1.0
 
 (* State which needs to get passed into LLVM functions *)
 type llvm_state = {
@@ -25,10 +25,18 @@ type llvm_state = {
 }
 
 let rec compile_exp state names = function
-  | Dsl.Num f -> Llvm.const_float f32_t f
+  | Dsl.Num f -> Llvm.const_float float_t f
   | Dsl.Var x ->
     if StringMap.mem x names then StringMap.find x names
     else failwith ("Undefined variable " ^ x)
+  | Dsl.Add (x,y) -> 
+    let x' = compile_exp state names x in 
+    let y' = compile_exp state names y in 
+    Llvm.build_fadd x' y'  "add_result" state.builder
+  | Dsl.Sub (x,y) -> 
+    let x' = compile_exp state names x in 
+    let y' = compile_exp state names y in 
+    Llvm.build_fsub x' y' "sub_result" state.builder 
   | Dsl.Div (x,y) ->
     let x' : Llvm.llvalue = compile_exp state names x in
     let y' : Llvm.llvalue = compile_exp state names y in
@@ -38,13 +46,10 @@ let rec compile_exp state names = function
     let y' : Llvm.llvalue = compile_exp state names y in
     Llvm.build_fmul x' y' "mult_result" state.builder
   | Dsl.Sum(loop_var_name, start, stop, body) ->
-    let start' : Llvm.llvalue =  compile_exp state names start in
-    let stop' : Llvm.llvalue = compile_exp state names stop in
+    let start : Llvm.llvalue =  compile_exp state names start in
+    let stop : Llvm.llvalue = compile_exp state names stop in
     (* what block are we currently inserting into *)
-    let curr_block : Llvm.llbasicblock = Llvm.insertion_block state.builder in
-    compile_loop state names curr_block loop_var_name start' stop' body
-
-and compile_loop state names old_block loop_var_name start stop body =
+    let old_block : Llvm.llbasicblock = Llvm.insertion_block state.builder in
     (* create a loop header where we test whether the loop should continue *)
     let loop_header : Llvm.llbasicblock =
       Llvm.append_block context "loop_header" state.llvm_fn
@@ -86,34 +91,19 @@ and compile_loop state names old_block loop_var_name start stop body =
     let next_result : Llvm.llvalue =
       Llvm.build_fadd result curr_val "next_result" state.builder
     in
+    (* builder might have moved when compiling body! *)
+    let curr_block = Llvm.insertion_block state.builder in 
     (* add an edge to the phi node so that result and next_result are merged *)
-    Llvm.add_incoming (next_result, loop_body) result;
+    Llvm.add_incoming (next_result, curr_block) result;
     let next_loop_var =
       Llvm.build_fadd loop_var one "next_loop_var" state.builder
     in
     (* update the phi node for the loop var also *)
-    Llvm.add_incoming (next_loop_var, loop_body) loop_var;
+    Llvm.add_incoming (next_loop_var, curr_block) loop_var;
     let _ = Llvm.build_br loop_header state.builder in
     (* move builder back to end of the block we were building*)
     Llvm.position_at_end  after_loop state.builder;
     result
-
-let init (f : Dsl.fn) : llvm_state =
-  (* for now modules aren't really used but still need to exist *)
-  let m : Llvm.llmodule = Llvm.create_module context "M" in
-  let input_types : Llvm.lltype list = List.map (fun _ -> f32_t) f.Dsl.inputs in
-  let return_type = f32_t in
-  let fn_type : Llvm.lltype =
-    Llvm.function_type return_type (Array.of_list input_types)
-  in
-  (* make a fresh function which takes some float64's and returns a float64 *)
-  let llvm_fn : Llvm.llvalue = Llvm.declare_function "fn" fn_type m in
-  let builder : Llvm.llbuilder  = Llvm.builder context in
-  (* create an entry block to the function and move our builder to this block *)
-  let entry : Llvm.llbasicblock = Llvm.append_block context "entry" llvm_fn in
-  Llvm.position_at_end entry builder;
-  { builder = builder; llvm_module = m; llvm_fn = llvm_fn }
-
 
 module LLE = Llvm_executionengine.ExecutionEngine
 
@@ -129,19 +119,32 @@ let optimize llvm_fn llvm_module execution_engine =
   Llvm_scalar_opts.add_aggressive_dce pm;
   Llvm_scalar_opts.add_instruction_combination pm;
   Llvm_scalar_opts.add_cfg_simplification pm;
-  Llvm_scalar_opts.add_scalar_repl_aggregation pm;
-  Llvm_scalar_opts.add_reassociation pm;
-  Llvm_scalar_opts.add_basic_alias_analysis pm;
-  Llvm_scalar_opts.add_type_based_alias_analysis pm;
   Llvm_scalar_opts.add_ind_var_simplification pm;
   Llvm_scalar_opts.add_dead_store_elimination pm;
   Llvm_scalar_opts.add_gvn pm;
-  Llvm_scalar_opts.add_correlated_value_propagation pm;
   Llvm_scalar_opts.add_licm pm;
 
   ignore (Llvm.PassManager.run_function llvm_fn pm);
   ignore (Llvm.PassManager.finalize pm);
   Llvm.PassManager.dispose pm
+
+let init (f : Dsl.fn) : llvm_state =
+  (* for now modules aren't really used but still need to exist *)
+  let m : Llvm.llmodule = Llvm.create_module context "M" in
+  let input_types : Llvm.lltype list = 
+    List.map (fun _ -> float_t) f.Dsl.inputs 
+  in
+  let return_type = float_t in
+  let fn_type : Llvm.lltype =
+    Llvm.function_type return_type (Array.of_list input_types)
+  in
+  (* make a fresh function which takes some float64's and returns a float64 *)
+  let llvm_fn : Llvm.llvalue = Llvm.declare_function f.Dsl.name fn_type m in
+  let builder : Llvm.llbuilder  = Llvm.builder context in
+  (* create an entry block to the function and move our builder to this block *)
+  let entry : Llvm.llbasicblock = Llvm.append_block context "entry" llvm_fn in
+  Llvm.position_at_end entry builder;
+  { builder = builder; llvm_module = m; llvm_fn = llvm_fn }
 
 type compiled_fn = {
   fn_val : Llvm.llvalue;
@@ -164,7 +167,10 @@ let compile (f:Dsl.fn) : compiled_fn  =
   let result = compile_exp state names f.Dsl.body in
   (* return the last value *)
   let _  = Llvm.build_ret result state.builder in
-
+  print_endline "Compiled LLVM Code:"; 
+  Llvm.dump_value state.llvm_fn;
+  print_endline "Validating function:";  
+  Llvm_analysis.assert_valid_function state.llvm_fn;
   (* create an optimizing JIT (opt-level = 3) *)
   let execution_engine : LLE.t =
     Llvm_executionengine.ExecutionEngine.create_jit state.llvm_module 3
@@ -179,8 +185,8 @@ let compile (f:Dsl.fn) : compiled_fn  =
 module GV = Llvm_executionengine.GenericValue
 
 let run (f:compiled_fn) (inputs:float list) : float =
-  let llvm_inputs : GV.t list = List.map (GV.of_float f32_t) inputs in
+  let llvm_inputs : GV.t list = List.map (GV.of_float float_t) inputs in
   let result : GV.t =
     LLE.run_function f.fn_val (Array.of_list llvm_inputs) f.execution_engine
   in
-  GV.as_float f32_t result
+  GV.as_float float_t result

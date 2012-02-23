@@ -1,6 +1,18 @@
 Here's toy language for 32-bit float computations in OCaml.
 
-It compiles to native code via LLVM.  
+For example, if you want to compute the n'th harmonic number, you could encode this as:
+    let harmonic : Dsl.fn = 
+      Compiler.compile { 
+        name ="harmonic";
+        inputs = ["n"];
+        body = Sum("i", Num 1.0, Var "n", Div(Num 1.0, Var "i"));
+      }
+
+To compile this function using LLVM:
+    let harmonic_compiled : Compiler.compiled_fn = Compiler.compile harmonic
+
+and lastly, you can call the function like this:
+    Compiler.run harmonic [10.0]" 
 
 Don't use this compiler in a space vehicle.  
 

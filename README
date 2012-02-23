@@ -7,9 +7,9 @@ For example, if you want to compute the n'th harmonic number, you could encode t
         inputs = ["n"];
         body = Sum("i", Num 1.0, Var "n", Div(Num 1.0, Var "i"));
       }
-Your code gets compiled to native code using LLVM. 
 
-You can then call your function like this: Compiler.run harmonic [10.0] 
+Your function gets compiled to native code using LLVM. You can then call 'harmonic' like this:
+    Compiler.run harmonic [10.0] 
 
 Don't use this compiler in a space vehicle.  
 

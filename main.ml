@@ -1,7 +1,7 @@
 open Printf
 open Dsl
 
-let f = {
+let f : Dsl.fn = {
   name = "f";
   inputs=["k"]; 
   body = Sum("i", Num 1.0, Var "k", Div(Num 1.0, Mult(Var "i", Var "i")))
@@ -14,12 +14,13 @@ let f_ocaml k =
   in
   aux 0.0 1.0
 
-let g = {
+let g : Dsl.fn = {
   name = "g"; 
   inputs=["k"];
   body=Sum ("i", Num 1.0, Var "k", 
           Sum("j", Num 1.0, Var "i", Add(Var "i", Var "j")))
 }
+
 let g_ocaml k =
   let sum1 = ref 0.0 in 
   let i = ref 1.0 in 

@@ -1,0 +1,10 @@
+Here's toy language for 32-bit float computations in OCaml.
+
+It compiles to native code via LLVM.  
+
+Don't use this compiler in a space vehicle.  
+
+Do use it to learn about LLVM. 
+
+Cheers, 
+Alex

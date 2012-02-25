@@ -1,4 +1,3 @@
-
 (* make sure we can compile native code *)
 let _ = Llvm_executionengine.initialize_native_target()
 
@@ -114,16 +113,18 @@ let optimize llvm_fn llvm_module execution_engine =
   Llvm_target.TargetData.add (LLE.target_data execution_engine) pm;
 
   (* THROW EVERY OPTIMIZATION UNDER THE SUN AT THE CODE *)
-  Llvm_scalar_opts.add_memory_to_register_promotion pm;
-  Llvm_scalar_opts.add_sccp pm;
-  Llvm_scalar_opts.add_aggressive_dce pm;
-  Llvm_scalar_opts.add_instruction_combination pm;
-  Llvm_scalar_opts.add_cfg_simplification pm;
-  Llvm_scalar_opts.add_ind_var_simplification pm;
-  Llvm_scalar_opts.add_dead_store_elimination pm;
-  Llvm_scalar_opts.add_gvn pm;
-  Llvm_scalar_opts.add_licm pm;
-
+  List.iter (fun f -> f pm) Llvm_scalar_opts.([
+    add_memory_to_register_promotion ;
+    add_sccp ;
+    add_aggressive_dce ;
+    add_instruction_combination ;
+    add_cfg_simplification ;
+    add_ind_var_simplification ;
+    add_dead_store_elimination ;
+    add_gvn ;
+    add_licm ;
+  ]);
+  
   ignore (Llvm.PassManager.run_function llvm_fn pm);
   ignore (Llvm.PassManager.finalize pm);
   Llvm.PassManager.dispose pm
